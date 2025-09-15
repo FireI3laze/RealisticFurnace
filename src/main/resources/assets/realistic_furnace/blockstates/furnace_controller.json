@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north":  { "model": "realistic_furnace:block/furnace_controller", "y": 0 },
+    "facing=south":  { "model": "realistic_furnace:block/furnace_controller", "y": 180 },
+    "facing=west":   { "model": "realistic_furnace:block/furnace_controller", "y": 270 },
+    "facing=east":   { "model": "realistic_furnace:block/furnace_controller", "y": 90 }
+  }
+}

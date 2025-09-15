@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "functional_blocks",
+  "pattern": [
+    "###",
+    "# #",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "minecraft:brick"
+    }
+  },
+  "result": {
+    "item": "realistic_furnace:furnace_controller"
+  }
+}
