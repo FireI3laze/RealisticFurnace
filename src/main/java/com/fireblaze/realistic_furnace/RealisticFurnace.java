@@ -55,9 +55,18 @@ public class RealisticFurnace
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
+        Path configDir = FMLPaths.CONFIGDIR.get().resolve("realistic_furnace");
+        try {
+            Files.createDirectories(configDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not create config directory for Realistic Furnace", e);
+        }
+
+        // === Config im Unterordner registrieren ===
         ModLoadingContext.get().registerConfig(
                 ModConfig.Type.COMMON,
-                RealisticFurnaceConfig.SPEC
+                RealisticFurnaceConfig.SPEC,
+                configDir.resolve("realistic_furnace-common.toml").toString()
         );
 
         // Register ourselves for server and other game events we are interested in
