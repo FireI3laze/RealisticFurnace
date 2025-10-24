@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "item": "minecraft:stone" }
+  ],
+  "output": { "item": "minecraft:smooth_stone" },
+  "requiredHeat": 1400
+}

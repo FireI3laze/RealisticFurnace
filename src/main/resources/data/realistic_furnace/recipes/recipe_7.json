@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "item": "minecraft:cobblestone" }
+  ],
+  "output": { "item": "minecraft:stone" },
+  "requiredHeat": 1250
+}

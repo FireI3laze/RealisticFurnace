@@ -3,8 +3,12 @@ package com.fireblaze.realistic_furnace;
 import com.fireblaze.realistic_furnace.blockentities.FurnaceControllerBlockEntity;
 import com.fireblaze.realistic_furnace.blockentities.ModBlockEntities;
 import com.fireblaze.realistic_furnace.blocks.ModBlocks;
+import com.fireblaze.realistic_furnace.commands.*;
+import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
 import com.fireblaze.realistic_furnace.containers.ModMenuTypes;
 import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
+import com.fireblaze.realistic_furnace.networking.NetworkHandler;
+import com.fireblaze.realistic_furnace.recipe.ModRecipes;
 import com.fireblaze.realistic_furnace.screens.FurnaceScreen;
 import com.fireblaze.realistic_furnace.items.ModItems;
 import com.mojang.logging.LogUtils;
@@ -15,15 +19,25 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(RealisticFurnace.MODID)
@@ -41,35 +55,62 @@ public class RealisticFurnace
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
 
+        ModLoadingContext.get().registerConfig(
+                ModConfig.Type.COMMON,
+                RealisticFurnaceConfig.SPEC
+        );
+
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
 
         // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
 
-        IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModMenuTypes.MENUS.register(modEventBus);
+        ModRecipes.register(modEventBus);
 
-        ModBlocks.BLOCKS.register(bus);
-        ModItems.ITEMS.register(bus);
-        ModBlockEntities.BLOCK_ENTITIES.register(bus);
-        ModMenuTypes.MENUS.register(bus);
-        FurnaceFuelRegistry.init();
-
+        NetworkHandler.register();
     }
 
     public static void clientSetup(final FMLClientSetupEvent event) {
-
     }
 
     public void commonSetup(final FMLCommonSetupEvent event) {
-        // Server/Client-seitige Tick-Registrierung
         event.enqueueWork(() -> {
-            BlockEntityType<FurnaceControllerBlockEntity> type = ModBlockEntities.FURNACE_CONTROLLER.get();
-            // serverseitig
-            BlockEntityTicker<FurnaceControllerBlockEntity> ticker = (level, pos, state, be) -> be.tick();
-            // clientseitig falls nötig
+            ensureDefaultMultiblockExists();
         });
     }
+
+    private static void ensureDefaultMultiblockExists() {
+        Path folder = FMLPaths.CONFIGDIR.get().resolve("realistic_furnace/multiblocks");
+        Path file = folder.resolve("original_furnace.json");
+
+        if (!Files.exists(file)) {
+            try {
+                Files.createDirectories(folder);
+
+                // Datei aus JAR kopieren
+                try (InputStream in = RealisticFurnace.class.getResourceAsStream(
+                        "/assets/realistic_furnace/multiblocks/original_furnace.json")) {
+
+                    if (in == null) {
+                        LOGGER.error("[Realistic Furnace] Default multiblock JSON not found in resources!");
+                        return;
+                    }
+
+                    Files.copy(in, file, StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.info("[Realistic Furnace] Default multiblock JSON created at " + file);
+
+                }
+            } catch (IOException e) {
+                LOGGER.error("[Realistic Furnace] Failed to create default multiblock JSON!", e);
+            }
+        }
+    }
+
 
     // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event)
@@ -94,6 +135,19 @@ public class RealisticFurnace
         public static void onClientSetup(FMLClientSetupEvent event)
         {
             MenuScreens.register(ModMenuTypes.FURNACE.get(), FurnaceScreen::new);
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = RealisticFurnace.MODID)
+    public class RealisticFurnaceCommandRegistration {
+
+        @SubscribeEvent
+        public static void onCommandRegister(RegisterCommandsEvent event) {
+            RealisticFurnaceCommand.register(event.getDispatcher());
+            SaveMultiblockCommand.register(event.getDispatcher());
+            SelectMultiblockCommand.register(event.getDispatcher());
+            DeleteMultiblockCommand.register(event.getDispatcher());
+            RegisterTrapdoorCommand.register(event.getDispatcher());
         }
     }
 }

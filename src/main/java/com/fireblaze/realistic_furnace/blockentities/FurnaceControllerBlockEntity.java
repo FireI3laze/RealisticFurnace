@@ -1,13 +1,17 @@
 package com.fireblaze.realistic_furnace.blockentities;
 
+import com.fireblaze.realistic_furnace.blocks.FurnaceControllerBlock;
+import com.fireblaze.realistic_furnace.client.FurnaceRenderState;
 import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
-import com.fireblaze.realistic_furnace.multiblock.FurnaceMultiblock;
-import com.fireblaze.realistic_furnace.multiblock.FurnaceMultiblockRenderer;
+import com.fireblaze.realistic_furnace.multiblock.*;
 import com.fireblaze.realistic_furnace.recipe.Realistic_Furnace_Recipe;
-import com.fireblaze.realistic_furnace.recipes.FurnaceRecipes;
+import com.fireblaze.realistic_furnace.client.renderer.FurnaceGhostRenderer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
@@ -17,9 +21,7 @@ import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.DoorBlock;
-import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
@@ -27,8 +29,11 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
+
+import static com.fireblaze.realistic_furnace.multiblock.FurnaceMultiblockRenderer.rotateOffset;
 
 public class FurnaceControllerBlockEntity extends BlockEntity {
     private final ItemStackHandler itemHandler = new ItemStackHandler(9) { // 0-7: input, 8: fuel
@@ -69,6 +74,19 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
 
     private static final int INPUT_SLOT = 0;
     private static final int OUTPUT_SLOT = 1;
+
+    private static OffsetBlock valveOffset;
+
+    public static void setValveOffset(OffsetBlock vent) {
+        valveOffset = vent;
+    }
+
+    public static OffsetBlock getValveOffset() {
+        return valveOffset;
+    }
+
+    private boolean showGhost = true;
+    private String selectedMultiblockName = "default_furnace";
 
 
     private final ContainerData heatData = new ContainerData() {
@@ -152,6 +170,32 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         super(ModBlockEntities.FURNACE_CONTROLLER.get(), pos, state);
     }
 
+    public boolean shouldRenderGhost() {
+        return showGhost;
+    }
+    public void updateGhostState(Level level) {
+        if (level == null || level.isClientSide) return;
+
+        List<OffsetBlock> missing = FurnaceMultiblockRenderer.getMissingBlocks(level, this.worldPosition);
+        showGhost = !missing.isEmpty();
+    }
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level != null && level.isClientSide) {
+            FurnaceGhostRenderer.register(this);
+        }
+    }
+
+    /** BE deregistriert sich beim Entfernen */
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        if (level.isClientSide) {
+            FurnaceGhostRenderer.unregister(this);
+        }
+    }
+
     public ContainerData getProgressData() {
         return progressData;
     }
@@ -170,6 +214,15 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     public static int getThreateningHeat() { return THREATENING_HEAT; }
     public float[] getProgress() { return progress; }
     public int getMaxProgress() { return maxProgress; }
+    public void setSelectedMultiblock(String name) {
+        this.selectedMultiblockName = name;
+        setChanged();
+    }
+
+    public String getSelectedMultiblock() {
+        return selectedMultiblockName;
+    }
+
 
     // Am Ende der Klasse, direkt über tickClient() oder processItems():
 
@@ -202,10 +255,11 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     public void tick() {
         if (level == null || level.isClientSide) return;
 
-        // Multiblock prüfen
-        if (!FurnaceMultiblock.validateStructure(level, worldPosition)) {
+        List<OffsetBlock> missingOrMisaligned = FurnaceMultiblockRenderer.getMissingBlocks(level, worldPosition);
+        if (!missingOrMisaligned.isEmpty()) {
             heat = 0;
             setChanged();
+            turnFurnaceOff();
             return;
         }
 
@@ -214,14 +268,8 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
 
         ItemStack fuel = itemHandler.getStackInSlot(8);
 
-        if (fuel.isEmpty() && heat <= 50) {
-            heat = 0;
-            return;
-        }
-
         boolean isBurning = false;
 
-        // Fuel starten
         if (burnTime <= 0 && !fuel.isEmpty() && FurnaceFuelRegistry.isFuel(fuel)) {
             burnTime = FurnaceFuelRegistry.getBurnTime(fuel);
             burnTimeTotal = burnTime;
@@ -235,12 +283,107 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             isBurning = true;
         }
 
-        boolean doorClosed = checkDoorClosed();
+        if (!isBurning && heat <= 50) {
+            heat = 0;
+            toggleLid(false);
+            setCampfireLit(false);
+            return;
+        }
 
-        float oldHeat = heat;
+        heat = calculateNewHeat(heat, isBurning);
+        if (heat >= THREATENING_HEAT) {
+            if (doesExplode()) {
+                spawnExplosionCause();
+                causeExplosion();
+                turnFurnaceOff();
+            }
+        } else ticksRunning = 0;
 
-        // Heat Management
-        if (doorClosed) {
+        processItems();
+        setChanged();
+        toggleLid(true);
+        setCampfireLit(true);
+    }
+
+    private void turnFurnaceOff() {
+        heat = 0;
+        ticksRunning = 0;
+        resetFuel();
+        toggleLid(false);
+        setCampfireLit(false);
+    }
+
+    private void toggleLid(boolean lightUp) {
+        boolean wasLit = this.getBlockState().getValue(FurnaceControllerBlock.LIT);
+        boolean isLit = lightUp;
+
+        if (wasLit != isLit) {
+            this.level.setBlock(this.worldPosition,
+                    this.getBlockState().setValue(FurnaceControllerBlock.LIT, isLit), 3);
+        }
+    }
+
+    private boolean doesExplode() {
+        float baseChance = 0.0002f; // Base Chance Per Tick
+        ticksRunning++;
+        float chance = baseChance * ticksRunning;
+
+        // Explosionstrigger
+        if (level.random.nextFloat() < chance) return true;
+        else return false;
+    }
+
+    private void spawnExplosionCause() {
+        ArmorStand dummy = EntityType.ARMOR_STAND.create(level);
+        if (dummy != null) {
+            dummy.setInvisible(true);
+            dummy.setInvulnerable(true);
+            dummy.setCustomName(Component.literal("Furnace"));
+            dummy.setCustomNameVisible(false);
+            dummy.moveTo(worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5);
+
+            level.addFreshEntity(dummy);
+
+            level.explode(
+                    dummy,
+                    worldPosition.offset(0, 0, 0).getX(),
+                    worldPosition.offset(0, 2, 0).getY(),
+                    worldPosition.offset(0, 0, 1).getZ(),
+                    6.0f,
+                    Level.ExplosionInteraction.BLOCK
+            );
+
+            dummy.discard();
+        }
+    }
+
+    private void causeExplosion() {
+        for (int i = 0; i < itemHandler.getSlots(); i++) {
+            ItemStack stack = itemHandler.getStackInSlot(i);
+            if (!stack.isEmpty()) {
+                ItemStack drop = stack.copy();
+                itemHandler.setStackInSlot(i, ItemStack.EMPTY);
+
+                double dx = worldPosition.getX() + 0.5;
+                double dy = worldPosition.getY() + 0.5;
+                double dz = worldPosition.getZ() + 0.5;
+                ItemEntity entity = new ItemEntity(level, dx, dy, dz, drop);
+
+                if (level.random.nextInt(100) < SCATTER_CHANCE) {
+                    double spread = 8;
+                    double motionX = (level.random.nextDouble() - 0.5) * spread * 2;
+                    double motionY = level.random.nextDouble() * 0.5 + 0.2;
+                    double motionZ = (level.random.nextDouble() - 0.5) * spread * 2;
+
+                    entity.setDeltaMovement(motionX, motionY, motionZ);
+                }
+                level.addFreshEntity(entity);
+            }
+        }
+    }
+
+    private float calculateNewHeat(float heat, boolean isBurning) {
+        if (checkDoorClosed()) {
             if (isBurning) {
                 heat += heatIncreaseCalculation(DOOR_CLOSED_MULTIPLIER, activeFuel) + heatDecreaseCalculation(1) * tickInterval;
             } else {
@@ -254,79 +397,12 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             }
         }
 
-        heat = Mth.clamp(heat, MIN_HEAT, MAX_HEAT);
-        // System.out.println(heat);
-        processItems();
-
-        if (heat >= THREATENING_HEAT) {
-            ticksRunning++;
-
-            // Chance steigt mit der Zeit
-            float baseChance = 0.0003f; // Grundchance pro Tick
-            float chance = baseChance * ticksRunning;
-            System.out.println("in explosion threshold! Chance: " + chance);
-
-            // Explosionstrigger
-            if (level.random.nextFloat() < chance) {
-                ArmorStand dummy = EntityType.ARMOR_STAND.create(level);
-                if (dummy != null) {
-                    dummy.setInvisible(true);
-                    dummy.setInvulnerable(true);
-                    dummy.setCustomName(Component.literal("Furnace"));
-                    dummy.setCustomNameVisible(false);
-                    dummy.moveTo(worldPosition.getX() + 0.5, worldPosition.getY(), worldPosition.getZ() + 0.5);
-
-                    level.addFreshEntity(dummy);
-
-                    level.explode(
-                            dummy,
-                            worldPosition.offset(0, 0, 0).getX(),
-                            worldPosition.offset(0, 1, 0).getY(),
-                            worldPosition.offset(0, 0, 1).getZ(),
-                            4.0f,
-                            Level.ExplosionInteraction.BLOCK
-                    );
-
-                    dummy.discard();
-                }
-
-                for (int i = 0; i < itemHandler.getSlots(); i++) {
-                    ItemStack stack = itemHandler.getStackInSlot(i);
-                    if (!stack.isEmpty()) {
-                        ItemStack drop = stack.copy();
-                        itemHandler.setStackInSlot(i, ItemStack.EMPTY);
-
-                        double dx = worldPosition.getX() + 0.5;
-                        double dy = worldPosition.getY() + 0.5;
-                        double dz = worldPosition.getZ() + 0.5;
-                        ItemEntity entity = new ItemEntity(level, dx, dy, dz, drop);
-
-                        if (level.random.nextInt(100) < SCATTER_CHANCE) {
-                            double spread = 4; // Stärke, wie weit die Items fliegen können
-                            double motionX = (level.random.nextDouble() - 0.5) * spread * 2;
-                            double motionY = level.random.nextDouble() * 0.5 + 0.2;
-                            double motionZ = (level.random.nextDouble() - 0.5) * spread * 2;
-
-                            entity.setDeltaMovement(motionX, motionY, motionZ);
-                        }
-                        level.addFreshEntity(entity);
-                    }
-                }
-
-                ticksRunning = 0;
-            }
-        }
-        else ticksRunning = 0;
-
-        if (heat != oldHeat || burnTime > 0) {
-            setChanged();
-        }
-
+        return Mth.clamp(heat, MIN_HEAT, MAX_HEAT);
     }
 
     private float heatIncreaseCalculation(float multiplier, ItemStack fuel) {
         float normalized = (heat - MIN_HEAT) / (MAX_HEAT - MIN_HEAT);
-        float exponent = 1.1f;
+        float exponent = 1.0f; //1.1
         float factor = (float) Math.pow(1.0f - normalized, exponent);
         return FurnaceFuelRegistry.getHeatStrength(fuel) * factor * multiplier;
     }
@@ -337,11 +413,52 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     }
 
     private boolean checkDoorClosed() {
-        BlockPos doorPos = worldPosition.offset(0, 3, 1);
+        BlockState state = getBlockState();
+        Direction facing = state.hasProperty(HorizontalDirectionalBlock.FACING)
+                ? state.getValue(HorizontalDirectionalBlock.FACING)
+                : Direction.NORTH;
+        BlockPos temp = rotateOffset(valveOffset, worldPosition, facing);
         assert level != null;
-        Block block = level.getBlockState(doorPos).getBlock();
-        return block instanceof TrapDoorBlock && !level.getBlockState(doorPos).getValue(DoorBlock.OPEN);
+
+        //System.out.println(valveOffset.x() +  " " + valveOffset.y() +  " " + valveOffset.z());
+
+        BlockState doorState = level.getBlockState(temp);
+        return doorState.getBlock() instanceof TrapDoorBlock && !doorState.getValue(DoorBlock.OPEN);
     }
+
+    private void setCampfireLit(boolean lit) {
+        BlockState state = getBlockState();
+        Direction facing = state.hasProperty(HorizontalDirectionalBlock.FACING)
+                ? state.getValue(HorizontalDirectionalBlock.FACING)
+                : Direction.NORTH;
+
+        BlockPos campfirePos = rotateOffset(
+                new OffsetBlock(0, 0, 1, List.of(Blocks.CAMPFIRE, Blocks.SOUL_CAMPFIRE), state),
+                worldPosition,
+                facing
+        );
+
+        assert level != null;
+        BlockState campfireState = level.getBlockState(campfirePos);
+
+        if (campfireState.getBlock() instanceof CampfireBlock) {
+            boolean currentlyLit = campfireState.getValue(CampfireBlock.LIT);
+            if (currentlyLit != lit) {
+                level.setBlock(campfirePos, campfireState.setValue(CampfireBlock.LIT, lit), 3);
+
+                // Optional Sound/Partikel
+                /*
+                if (lit) {
+                    level.playSound(null, campfirePos, SoundEvents.CAMPFIRE_CRACKLE, SoundSource.BLOCKS, 1.0F, 1.0F);
+                } else {
+                    level.playSound(null, campfirePos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 1.0F, 1.0F);
+                }
+
+                 */
+            }
+        }
+    }
+
 
     private final ItemStack[] lastItems = new ItemStack[8];
     private final boolean[] stalled = new boolean[8];
@@ -350,10 +467,8 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         for (int i = 0; i < 8; i++) {
             ItemStack input = itemHandler.getStackInSlot(i);
 
-            // Initialisierung: falls noch null, setzen wir einen leeren Stack
             if (lastItems[i] == null) lastItems[i] = ItemStack.EMPTY;
 
-            // Fortschritt zurücksetzen, wenn Slot leer oder Item gewechselt
             if (!ItemStack.matches(input, lastItems[i])) {
                 progress[i] = 0;
                 lastItems[i] = input.copy();
@@ -365,54 +480,70 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
                 continue;
             }
 
-            for (var recipe : FurnaceRecipes.RECIPES) { // uses old recipe code
-                if (recipe.matches(input)) { // uses old recipe code
-                    float percentageOfRequiredHeat = heat / recipe.getRequiredHeat();
-                    float reachableProgress = maxProgress * percentageOfRequiredHeat;
+            Optional<Realistic_Furnace_Recipe> recipeOpt = getRecipeForSlot(input);
+            if (recipeOpt.isEmpty()) {
+                progress[i] = 0;
+                stalled[i] = true;
+                continue;
+            }
 
-                    if (progress[i] < reachableProgress && percentageOfRequiredHeat >= 0.8) {
-                        progress[i] += 1 * percentageOfRequiredHeat * tickInterval;
-                        stalled[i] = false;
-                    } else {
-                        if (progress[i] > 0) {
-                            if (progress[i] - 0.5f * tickInterval < reachableProgress)
-                                progress[i] = reachableProgress;
-                            else
-                                progress[i] -= 0.5f * tickInterval;
+            Realistic_Furnace_Recipe recipe = recipeOpt.get();
 
-                            stalled[i] = true;
-                            break;
-                        }
-                    }
+            float percentageOfRequiredHeat = heat / recipe.getRequiredHeat();
+            float reachableProgress = maxProgress * percentageOfRequiredHeat;
 
-                    progress[i] = Math.max(0, Math.min(progress[i], maxProgress));
+            if (percentageOfRequiredHeat >= 1.5f && progress[i] >= (float) maxProgress / 2) {
+                itemHandler.extractItem(i, 1, false);
 
-                    if (progress[i] >= maxProgress) {
-                        itemHandler.extractItem(i, 1, false);
-                        itemHandler.insertItem(i, recipe.process(), false);
-                        progress[i] = 0;
-                        stalled[i] = false;
-                    }
-                    break;
+                ItemStack overheated = recipe.getOverheatedResult(level.registryAccess());
+                if (overheated != null && !overheated.isEmpty()) {
+                    itemHandler.insertItem(i, overheated.copy(), false);
                 }
-                //System.out.println("Stalled id [" + i + "] on Server: " + stalled[i]);
+
+                progress[i] = 0;
+                stalled[i] = true;
+                continue;
+            }
+
+
+
+            if (progress[i] < reachableProgress && percentageOfRequiredHeat >= 0.8) {
+                progress[i] += 1 * percentageOfRequiredHeat * tickInterval;
+                stalled[i] = false;
+            } else {
+                if (progress[i] > 0) {
+                    if (progress[i] - 0.5f * tickInterval < reachableProgress)
+                        progress[i] = reachableProgress;
+                    else
+                        progress[i] -= 0.5f * tickInterval;
+
+                    stalled[i] = true;
+                    continue;
+                }
+            }
+
+            progress[i] = Math.max(0, Math.min(progress[i], maxProgress));
+
+            if (progress[i] >= maxProgress) {
+                itemHandler.extractItem(i, 1, false);
+                assert level != null;
+                itemHandler.insertItem(i, recipe.getResultItem(level.registryAccess()).copy(), false);
+                progress[i] = 0;
+                stalled[i] = false;
             }
         }
     }
 
-    public void tickClient() {
-        if (level == null || !level.isClientSide) return;
+    private Optional<Realistic_Furnace_Recipe> getRecipeForSlot(ItemStack stack) {
+        if (level == null || stack.isEmpty()) return Optional.empty();
 
-        List<BlockPos> missing = FurnaceMultiblockRenderer.getMissingBlocks(level, worldPosition);
+        // Container nur für dieses Item
+        SimpleContainer container = new SimpleContainer(1);
+        container.setItem(0, stack);
 
-        for (BlockPos pos : missing) {
-            level.addParticle(ParticleTypes.SMOKE,
-                    pos.getX() + 0.5,
-                    pos.getY() + 0.5,
-                    pos.getZ() + 0.5,
-                    0, 0.05, 0);
-        }
+        return level.getRecipeManager().getRecipeFor(Realistic_Furnace_Recipe.Type.INSTANCE, container, level);
     }
+
 
     private void smeltItem(int slot) {
         Optional<Realistic_Furnace_Recipe> recipe = getCurrentRecipe();
@@ -442,6 +573,15 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         return this.itemHandler.getStackInSlot(OUTPUT_SLOT).getCount() + count <= this.itemHandler.getStackInSlot(OUTPUT_SLOT).getMaxStackSize();
     }
 
+
+    private void resetFuel() {
+        this.burnTime = 0;
+        this.burnTimeTotal = 0;
+        this.activeFuel = ItemStack.EMPTY;
+
+        this.setChanged();
+    }
+
     private Optional<Realistic_Furnace_Recipe> getCurrentRecipe() {
         SimpleContainer inventory = new SimpleContainer(this.itemHandler.getSlots());
         for (int i = 0; i< itemHandler.getSlots(); i++) {
@@ -451,54 +591,112 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         return this.level.getRecipeManager().getRecipeFor(Realistic_Furnace_Recipe.Type.INSTANCE, inventory, level);
     }
 
+    private GhostMode ghostMode = GhostMode.BLOCK_BY_BLOCK;
+
+    public void toggleGhostMode() {
+        ghostMode = ghostMode.next();
+        setChanged();
+
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    public GhostMode getGhostMode() {
+        return ghostMode;
+    }
+
+    public enum GhostMode {
+        BLOCK_BY_BLOCK,
+        FULL_STRUCTURE,
+        NONE;
+
+        public GhostMode next() {
+            return switch (this) {
+                case BLOCK_BY_BLOCK -> FULL_STRUCTURE;
+                case FULL_STRUCTURE -> NONE;
+                case NONE -> BLOCK_BY_BLOCK;
+            };
+        }
+    }
+
+
     @Override
-    protected void saveAdditional(net.minecraft.nbt.CompoundTag tag) {
+    protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-
-        // NBT: Items speichern
         tag.put("Items", itemHandler.serializeNBT());
-
-        // NBT: Heat speichern
         tag.putFloat("Heat", heat);
-        tag.putInt("MaxHeat", MAX_HEAT);
-
-        // NBT: BurnTime speichern
         tag.putInt("BurnTime", burnTime);
         tag.putInt("BurnTimeTotal", burnTimeTotal);
+        tag.put("ActiveFuel", activeFuel.save(new CompoundTag()));
 
-        // NBT: Active Fuel speichern
-        tag.put("ActiveFuel", activeFuel.save(new net.minecraft.nbt.CompoundTag()));
-
-        // NBT: Progress Array speichern
         for (int i = 0; i < progress.length; i++) {
             tag.putFloat("Progress" + i, progress[i]);
             tag.putBoolean("Stalled" + i, stalled[i]);
         }
+
+        tag.putString("GhostMode", ghostMode.name());
+        tag.putString("SelectedMultiblock", selectedMultiblockName);
     }
 
     @Override
-    public void load(net.minecraft.nbt.CompoundTag tag) {
+    public void load(CompoundTag tag) {
         super.load(tag);
-
-        // NBT: Items laden
         itemHandler.deserializeNBT(tag.getCompound("Items"));
-
-        // NBT: Heat laden
         heat = tag.getFloat("Heat");
-
-        // NBT: BurnTime laden
         burnTime = tag.getInt("BurnTime");
         burnTimeTotal = tag.getInt("BurnTimeTotal");
-
-        // NBT: Active Fuel laden
         activeFuel = ItemStack.of(tag.getCompound("ActiveFuel"));
 
-        // NBT: Progress Array laden
         for (int i = 0; i < progress.length; i++) {
             progress[i] = tag.getFloat("Progress" + i);
             stalled[i] = tag.getBoolean("Stalled" + i);
         }
+
+        ghostMode = GhostMode.valueOf(tag.getString("GhostMode"));
+        selectedMultiblockName = tag.getString("SelectedMultiblock");
     }
+
+
+
+    // --- Client Sync (Server -> Client Update) --- //
+
+    @Override
+    public CompoundTag getUpdateTag() {
+        CompoundTag tag = new CompoundTag();
+        saveAdditional(tag);
+        return tag;
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag) {
+        super.handleUpdateTag(tag); // NBT laden
+
+        // Ghosts nur berechnen, wenn Client
+        if (level != null && level.isClientSide) {
+            // neu registrieren oder fehlende Blöcke aktualisieren
+            FurnaceGhostRenderer.register(this);
+
+            // sofort fehlende Blöcke prüfen
+            List<OffsetBlock> missing = FurnaceMultiblockRenderer.getMissingBlocks(level, worldPosition);
+            boolean active = !missing.isEmpty();
+            FurnaceRenderState.setGhostRendering(active);
+        }
+    }
+
+
+
+    @Nullable
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    @Override
+    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+        handleUpdateTag(pkt.getTag());
+    }
+
 
 // Wichtig: setChanged() aufrufen, wenn sich Heat/BurnTime/Progress ändern, z.B. in tick()
 

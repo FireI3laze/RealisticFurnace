@@ -14,23 +14,44 @@ import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
+
 public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
     private final NonNullList<Ingredient> inputItems;
     private final ItemStack output;
     private final ResourceLocation id;
+    private final int requiredHeat;
+    private final ItemStack overheatedResult;
 
-    public Realistic_Furnace_Recipe(NonNullList<Ingredient> inputItems, ItemStack output, ResourceLocation id) {
+    public Realistic_Furnace_Recipe(NonNullList<Ingredient> inputItems, ItemStack output, ResourceLocation id, int requiredHeat, ItemStack overheatedResult) {
         this.inputItems = inputItems;
         this.output = output;
         this.id = id;
+        this.requiredHeat = requiredHeat;
+        this.overheatedResult = overheatedResult;
     }
 
+    public int getRequiredHeat() {
+        return requiredHeat;
+    }
+    @Nullable
+    public ItemStack getOverheatedResult(RegistryAccess registryAccess) {
+        return overheatedResult == null ? ItemStack.EMPTY : overheatedResult;
+    }
 
     @Override
-    public boolean matches(SimpleContainer pContainer, Level pLevel) {
-        if (pLevel.isClientSide) return false;
+    public boolean matches(SimpleContainer container, Level level) {
+        if (level.isClientSide) return false;
+        if (container.isEmpty()) return false;
+        ItemStack stack = container.getItem(0);
+        if (stack.isEmpty()) return false;
 
-        return inputItems.get(0).test(pContainer.getItem(0));
+        return inputItems.stream().anyMatch(ingredient -> ingredient.test(stack));
+    }
+
+    @Override
+    public NonNullList<Ingredient> getIngredients() {
+        return inputItems;
     }
 
     @Override
@@ -72,39 +93,52 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
 
         @Override
         public Realistic_Furnace_Recipe fromJson(ResourceLocation pRecipeId, JsonObject pSerializedRecipe) {
+            int requiredHeat = GsonHelper.getAsInt(pSerializedRecipe, "requiredHeat", 1000);
+
             ItemStack output = ShapedRecipe.itemStackFromJson(GsonHelper.getAsJsonObject(pSerializedRecipe, "output"));
 
             JsonArray ingredients = GsonHelper.getAsJsonArray(pSerializedRecipe, "ingredients");
             NonNullList<Ingredient> inputs = NonNullList.withSize(1, Ingredient.EMPTY);
+            inputs.set(0, Ingredient.fromJson(ingredients.get(0)));
 
-            for(int i = 0; i < inputs.size(); i++) {
-                inputs.set(i, Ingredient.fromJson(ingredients.get(i)));
+            // 🔹 Überhitzungs-Output aus JSON
+            ItemStack overheatedResult = ItemStack.EMPTY;
+            if (pSerializedRecipe.has("overheatedOutput")) {
+                overheatedResult = ShapedRecipe.itemStackFromJson(GsonHelper.getAsJsonObject(pSerializedRecipe, "overheatedOutput"));
             }
 
-            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId);
+            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult);
         }
 
         @Override
         public @Nullable Realistic_Furnace_Recipe fromNetwork(ResourceLocation pRecipeId, FriendlyByteBuf pBuffer) {
             NonNullList<Ingredient> inputs = NonNullList.withSize(pBuffer.readInt(), Ingredient.EMPTY);
-
             for (int i = 0; i < inputs.size(); i++) {
                 inputs.set(i, Ingredient.fromNetwork(pBuffer));
             }
 
             ItemStack output = pBuffer.readItem();
-            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId);
+            int requiredHeat = pBuffer.readInt();
+
+            // 🔹 Überhitzungs-Output übertragen
+            ItemStack overheatedResult = pBuffer.readItem();
+
+            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult);
         }
 
         @Override
         public void toNetwork(FriendlyByteBuf pBuffer, Realistic_Furnace_Recipe pRecipe) {
             pBuffer.writeInt(pRecipe.inputItems.size());
-
             for (Ingredient ingredient : pRecipe.getIngredients()) {
                 ingredient.toNetwork(pBuffer);
             }
 
             pBuffer.writeItemStack(pRecipe.getResultItem(null), false);
+            pBuffer.writeInt(pRecipe.getRequiredHeat());
+
+            // 🔹 Überhitzungs-Output übertragen
+            pBuffer.writeItemStack(Objects.requireNonNull(pRecipe.getOverheatedResult(null)), false);
         }
+
     }
 }

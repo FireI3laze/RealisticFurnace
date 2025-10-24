@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "item": "minecraft:clay_ball" }
+  ],
+  "output": { "item": "minecraft:brick" },
+  "requiredHeat": 800
+}

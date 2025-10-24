@@ -14,7 +14,7 @@ public class ModBlockEntities {
             DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, RealisticFurnace.MODID);
 
     public static final RegistryObject<BlockEntityType<FurnaceControllerBlockEntity>> FURNACE_CONTROLLER =
-            BLOCK_ENTITIES.register("furnace_controller.json",
+            BLOCK_ENTITIES.register("furnace_controller_off.json",
                     () -> BlockEntityType.Builder.of(FurnaceControllerBlockEntity::new, ModBlocks.FURNACE_CONTROLLER.get())
                             .build(null));
 }

@@ -1,10 +1,10 @@
 {
   "parent": "minecraft:block/cube",
   "textures": {
-    "particle": "realistic_furnace:block/furnace_controller_front",
+    "particle": "realistic_furnace:block/furnace_controller_front_on",
     "down": "realistic_furnace:block/furnace_controller_bottom",
     "up": "realistic_furnace:block/furnace_controller_top",
-    "north": "realistic_furnace:block/furnace_controller_front",
+    "north": "realistic_furnace:block/furnace_controller_front_on",
     "east": "realistic_furnace:block/furnace_controller_side",
     "south": "realistic_furnace:block/furnace_controller_side",
     "west": "realistic_furnace:block/furnace_controller_side"

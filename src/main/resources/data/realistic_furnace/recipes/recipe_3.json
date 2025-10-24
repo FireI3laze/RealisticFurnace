@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "tag": "minecraft:sand" }
+  ],
+  "output": { "item": "minecraft:glass" },
+  "requiredHeat": 1400
+}

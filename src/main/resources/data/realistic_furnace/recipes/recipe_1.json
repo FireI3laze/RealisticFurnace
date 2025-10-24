@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "tag": "minecraft:logs" }
+  ],
+  "output": { "item": "minecraft:charcoal" },
+  "requiredHeat": 350
+}

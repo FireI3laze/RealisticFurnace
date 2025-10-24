@@ -117,7 +117,7 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             if (i > 8) break;
 
             // Fortschritt aus ContainerData holen
-            int current = menu.getProgressData().get(i * 2) / 100;       // aktueller Fortschritt
+            int current = menu.getProgressData().get(i * 2) / 10;       // aktueller Fortschritt
             int stalledInt = menu.getProgressData().get(i * 2 + 1); // 0 = normal, 1 = stalled
             boolean isStalled = stalledInt != 0;
 
@@ -131,8 +131,6 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             // Position: über dem Slot, zentriert
             int xSlot = leftPos + slot.x + (16 - barWidth) / 2;
             int ySlot = topPos + slot.y - barHeight - 2;
-
-            //System.out.println("Stalled id [" + i + "] on client: " + isStalled);
 
             // Farbverlauf von hellblau nach dunkelblau, rot wenn stalled
             int colorLeft = isStalled ? 0xFFFF5555 : 0xFF88CCFF;  // rot, falls stagnierend

@@ -2,13 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "functional_blocks",
   "pattern": [
-    "###",
-    "# #",
-    "###"
+    "BBB",
+    "C C",
+    "C C"
   ],
   "key": {
-    "#": {
+    "B": {
       "item": "minecraft:brick"
+    },
+    "C": {
+      "item": "minecraft:cobblestone"
     }
   },
   "result": {

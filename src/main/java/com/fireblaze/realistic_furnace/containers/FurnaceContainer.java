@@ -1,8 +1,7 @@
 package com.fireblaze.realistic_furnace.containers;
 
 import com.fireblaze.realistic_furnace.blockentities.FurnaceControllerBlockEntity;
-import com.fireblaze.realistic_furnace.recipes.FurnaceRecipe;
-import com.fireblaze.realistic_furnace.recipes.FurnaceRecipes;
+import com.fireblaze.realistic_furnace.recipe.Realistic_Furnace_Recipe;
 import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.tags.TagKey;
@@ -11,9 +10,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public class FurnaceContainer extends AbstractContainerMenu {
@@ -25,11 +28,19 @@ public class FurnaceContainer extends AbstractContainerMenu {
     private final ContainerData progressData;
     private final ContainerData heatData;
     private final ContainerData burnTimeData;
+    private final List<Realistic_Furnace_Recipe> recipes;
 
     public FurnaceContainer(int id, Inventory playerInventory, FurnaceControllerBlockEntity blockEntity) {
         super(ModMenuTypes.FURNACE.get(), id);
         this.blockEntity = blockEntity;
         this.itemHandler = blockEntity.getItemHandler();
+
+        if (!playerInventory.player.level().isClientSide) {
+            RecipeManager recipeManager = playerInventory.player.level().getRecipeManager();
+            this.recipes = recipeManager.getAllRecipesFor(Realistic_Furnace_Recipe.Type.INSTANCE);
+        } else {
+            this.recipes = Collections.emptyList();
+        }
 
         // === Progress-Daten (pro Slot) ===
         this.progressData = new ContainerData() {
@@ -40,7 +51,7 @@ public class FurnaceContainer extends AbstractContainerMenu {
 
                 if (slot >= 0 && slot < blockEntity.getProgress().length) {
                     return switch (type) {
-                        case 0 -> (int) (blockEntity.getProgress()[slot] * 100); // Fortschritt
+                        case 0 -> (int) (blockEntity.getProgress()[slot] * 10); // Fortschritt
                         case 1 -> blockEntity.isStalled(slot) ? 1 : 0;          // stalled
                         default -> 0;
                     };
@@ -55,7 +66,7 @@ public class FurnaceContainer extends AbstractContainerMenu {
 
                 if (slot >= 0 && slot < blockEntity.getProgress().length) {
                     if (type == 0) {
-                        blockEntity.getProgress()[slot] = value / 100f;
+                        blockEntity.getProgress()[slot] = value / 10f;
                     } else if (type == 1) {
                         blockEntity.setStalled(slot, value != 0);
                     }
@@ -111,23 +122,21 @@ public class FurnaceContainer extends AbstractContainerMenu {
         ItemStack copy = stack.copy();
         boolean moved = false;
 
-        // Verschiebe von Container zu Inventory
-        if (index < 9) { // Container-Slots -> Inventory
+        if (index < 9) { // Container -> Inventory
             if (!moveItemStackTo(stack, 9, 36, true)) return ItemStack.EMPTY;
         } else { // Inventory -> Container
-            // 1. Prüfe, ob Item zu einem Rezept passt
-            for (FurnaceRecipe recipe : FurnaceRecipes.RECIPES) {
-                if (recipe.getInputItem() != null && stack.getItem() == recipe.getInputItem()) {
-                    moved = moveItemStackTo(stack, 0, 8, false); // Input-Slots 0-7
-                    break;
+            // Prüfe, ob Item zu einem Recipe passt
+            for (Realistic_Furnace_Recipe recipe : recipes) {
+                for (Ingredient ingredient : recipe.getIngredients()) {
+                    if (ingredient.test(stack)) {
+                        moved = moveItemStackTo(stack, 0, 8, false); // Input-Slots
+                        break;
+                    }
                 }
-                if (recipe.getInputTag() != null && stack.is(recipe.getInputTag())) {
-                    moved = moveItemStackTo(stack, 0, 8, false); // Input-Slots 0-7
-                    break;
-                }
+                if (moved) break;
             }
 
-            // 2. Prüfe, ob Item Fuel ist, wenn noch nicht verschoben
+            // Prüfe Fuel
             if (!moved && FurnaceFuelRegistry.isFuel(stack)) {
                 moved = moveItemStackTo(stack, 8, 9, false); // Fuel-Slot
             }
@@ -140,6 +149,8 @@ public class FurnaceContainer extends AbstractContainerMenu {
 
         return copy;
     }
+
+
 
 
 

@@ -1,0 +1,8 @@
+{
+  "type": "realistic_furnace:realistic_smelting",
+  "ingredients": [
+    { "item": "minecraft:raw_copper" }
+  ],
+  "output": { "item": "minecraft:copper_ingot" },
+  "requiredHeat": 1200
+}

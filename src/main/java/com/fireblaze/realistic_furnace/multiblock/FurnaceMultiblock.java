@@ -1,13 +1,15 @@
 package com.fireblaze.realistic_furnace.multiblock;
 
 import com.fireblaze.realistic_furnace.blocks.FurnaceControllerBlock;
+import com.fireblaze.realistic_furnace.client.renderer.FurnaceGhostRenderer;
+import com.fireblaze.realistic_furnace.commands.SelectMultiblockCommand;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Half;
+import net.minecraft.world.level.block.state.properties.StairsShape;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,105 +17,38 @@ import java.util.List;
 public class FurnaceMultiblock {
 
     // Offsets relativ zum Controller, bevor Rotation angewendet wird
-    public static final List<OffsetBlock> STRUCTURE = List.of(
-            // === Inner Space ===
-            new OffsetBlock(0, 0, 1, List.of(net.minecraft.world.level.block.Blocks.CAMPFIRE)),
-            new OffsetBlock(1, 0, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(-1, 0, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(0, 0, 2, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-
-            new OffsetBlock(0, 1, 0, List.of(net.minecraft.world.level.block.Blocks.BRICK_SLAB)),
-            new OffsetBlock(1, 1, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(-1, 1, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(0, 1, 2, List.of(net.minecraft.world.level.block.Blocks.BRICK_SLAB)),
-
-            new OffsetBlock(0, 2, 0, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-            new OffsetBlock(1, 2, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(-1, 2, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(0, 2, 2, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-
-            new OffsetBlock(0, 3, 0, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(1, 3, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(-1, 3, 1, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-            new OffsetBlock(0, 3, 2, List.of(net.minecraft.world.level.block.Blocks.BRICKS)),
-
-            new OffsetBlock(0, 4, 0, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-            new OffsetBlock(1, 4, 1, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-1, 4, 1, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-            new OffsetBlock(0, 4, 2, List.of(net.minecraft.world.level.block.Blocks.BRICK_STAIRS)),
-
-            new OffsetBlock(0, 5, 0, List.of(Blocks.BRICK_SLAB)),
-            new OffsetBlock(1, 5, 1, List.of(Blocks.BRICK_SLAB)),
-            new OffsetBlock(-1, 5, 1, List.of(Blocks.BRICK_SLAB)),
-            new OffsetBlock(0, 5, 2, List.of(Blocks.BRICK_SLAB)),
-
-            new OffsetBlock(0, 3, 1, List.of(net.minecraft.world.level.block.Blocks.OAK_TRAPDOOR)),
-
-            // === Front ===
-            new OffsetBlock(1, 0, 0, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(2, 0, 0, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-1, 0, 0, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-2, 0, 0, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(1, 1, 0, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(-1, 1, 0, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(1, 2, 0, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-1, 2, 0, List.of(Blocks.BRICK_STAIRS)),
-
-            // === Back ===
-            new OffsetBlock(1, 0, 2, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(2, 0, 2, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-1, 0, 2, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-2, 0, 2, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(1, 1, 2, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(-1, 1, 2, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(1, 2, 2, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-1, 2, 2, List.of(Blocks.BRICK_STAIRS)),
-
-            // === Left ===
-            new OffsetBlock(2, 0, 1, List.of(Blocks.BRICKS)),
-            new OffsetBlock(2, 1, 1, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(2, 2, 1, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(2, 3, 1, List.of(Blocks.BRICK_SLAB)),
 
 
-            // === Right ===
-            new OffsetBlock(-2, 0, 1, List.of(Blocks.BRICKS)),
-            new OffsetBlock(-2, 1, 1, List.of(Blocks.BRICK_WALL)),
-            new OffsetBlock(-2, 2, 1, List.of(Blocks.BRICK_STAIRS)),
-            new OffsetBlock(-2, 3, 1, List.of(Blocks.BRICK_SLAB))
+    public static List<OffsetBlock> getCurrentStructure(Level world) {
+        String selectedName = FurnaceMultiblockRegistry.getSelectedMultiblockName(world);
 
-            // === Optional ===
-            //new OffsetBlock(0, 3, -1, List.of(Blocks.LEVER))
+        List<OffsetBlock> structure = FurnaceMultiblockRegistry.getSelectedMultiblock(world, selectedName);
+        if (structure.isEmpty()) {
+            // Fallback laden
+            List<OffsetBlock> fallback = FurnaceMultiblockRegistry.loadByName(world, MultiblockUtils.getFallbackFile());
+            FurnaceMultiblockRegistry.selectMultiblock(world, MultiblockUtils.getFallbackFile(), fallback);
+            return fallback;
+        }
 
-    );
+        return structure;
+    }
 
-    public static boolean validateStructure(Level level, BlockPos origin) {
-        BlockState controllerState = level.getBlockState(origin);
+    public static boolean validateStructure(Level world, BlockPos origin) {
+        BlockState controllerState = world.getBlockState(origin);
         Direction facing = Direction.NORTH; // Default fallback
         if (controllerState.getBlock() instanceof FurnaceControllerBlock) {
             facing = controllerState.getValue(HorizontalDirectionalBlock.FACING);
         }
 
-        for (OffsetBlock offset : STRUCTURE) {
-            BlockPos rotatedPos = rotateOffset(offset, origin, facing);
-            Block block = level.getBlockState(rotatedPos).getBlock();
+        List<OffsetBlock> structure = getCurrentStructure(world);
+
+        for (OffsetBlock offset : structure) {
+            BlockPos rotatedPos = FurnaceMultiblockRenderer.rotateOffset(offset, origin, facing);
+            Block block = world.getBlockState(rotatedPos).getBlock();
             if (!offset.matcher().test(block)) return false;
         }
+
         return true;
     }
 
-    private static BlockPos rotateOffset(OffsetBlock offset, BlockPos origin, Direction facing) {
-        int x = offset.x();
-        int y = offset.y();
-        int z = offset.z();
-
-        // Drehung um die Y-Achse basierend auf Facing
-        return switch (facing) {
-            case NORTH -> origin.offset(x, y, z);          // Original
-            case SOUTH -> origin.offset(-x, y, -z);       // 180°
-            case WEST  -> origin.offset(z, y, -x);        // 90° gegen Uhrzeigersinn
-            case EAST  -> origin.offset(-z, y, x);        // 90° im Uhrzeigersinn
-            default -> origin.offset(x, y, z);
-        };
-    }
 }
