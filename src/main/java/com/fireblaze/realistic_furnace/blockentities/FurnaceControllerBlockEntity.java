@@ -52,7 +52,6 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     };
 
     private float heat = 0f;
-    private int maxHeat = 1800;
     private final float[] progress = new float[8];
     private final int maxProgress = 1000;
     private int burnTime = 0;
@@ -383,20 +382,37 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     }
 
     private float calculateNewHeat(float heat, boolean isBurning) {
+        float heatChange;
+        float oldHeat = heat;
+
         if (checkDoorClosed()) {
             if (isBurning) {
-                heat += heatIncreaseCalculation(DOOR_CLOSED_MULTIPLIER, activeFuel) + heatDecreaseCalculation(1) * tickInterval;
+                heatChange = heatIncreaseCalculation(DOOR_CLOSED_MULTIPLIER, activeFuel) + heatDecreaseCalculation(1) * tickInterval;
+                if (heatChange > 0.30) heat += heatChange;
+                else heat += (heatChange - 0.30f);
             } else {
-                heat += heatDecreaseCalculation(1) * tickInterval;
+                heatChange = heatDecreaseCalculation(1) * tickInterval;
+                if (heatChange > 0.30) heat += heatChange;
+                else heat += (heatChange - 0.30f);
             }
         } else {
             if (isBurning) {
-                heat += heatIncreaseCalculation(1, activeFuel) + heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
+                heatChange = heatIncreaseCalculation(1, activeFuel) + heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
+                if (heatChange > 0.30) heat += heatChange;
+                else heat += (heatChange - 0.30f);
             } else {
-                heat += heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
+                heatChange = heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
+                if (heatChange > 0.30) heat += heatChange;
+                else heat += (heatChange - 0.30f);
             }
         }
 
+        System.out.println(heatChange);
+
+        int itemMaxHeat = FurnaceFuelRegistry.getMaxHeat(activeFuel);
+        if (itemMaxHeat != 0 && heat > itemMaxHeat && oldHeat < heat) {
+            heat = itemMaxHeat;
+        }
         return Mth.clamp(heat, MIN_HEAT, MAX_HEAT);
     }
 

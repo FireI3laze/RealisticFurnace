@@ -8,6 +8,9 @@ public class RealisticFurnaceConfig {
     public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
     public static final ForgeConfigSpec SPEC;
 
+    // === Fuel Settings ===
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CUSTOM_FUELS;
+
     // === Multiblock Settings ===
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> STRUCTURE_BLOCKS_WHITELIST;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> STRUCTURE_BLOCKS_BLACKLIST;
@@ -16,7 +19,31 @@ public class RealisticFurnaceConfig {
     public static final ForgeConfigSpec.ConfigValue<String> FALLBACK_MULTIBLOCK_FILE;
 
 
+
+
     static {
+        BUILDER.push("Fuel");
+        CUSTOM_FUELS = BUILDER
+                .comment(
+                        "Custom fuels in format:\n" +
+                                "\"<item_or_tag>,<burnTime>,<heatStrength>[,<maxHeat>]\"\n" +
+                                "burnTime determines the time (in ticks) how long an item burns\n" +
+                                "heatStrength is a value that determines the heat raise speed and max heat\n" +
+                                "maxHeat can be optionally set to hard force a max heat. Put it with caution, if not somewhat in sync with the dynamically created max heat based on heatStrength, it could lead to unrealistic heat jumps\n" +
+                                "Example:\n" +
+                                "\"minecraft:coal,1600,0.9\",\n" +
+                                "\"minecraft:charcoal,1600,0.275,1350\",\n" +
+                                "\"#minecraft:planks,300,0.2,800\"  (Tags begin with '#')\n" +
+                                "\"minecraft:stick,150,0.1,800\""
+                )
+                .defineList("fuels", List.of(
+                        "minecraft:coal,1600,0.9",
+                        "minecraft:charcoal,1600,0.275,1350",
+                        "#minecraft:planks,300,0.1,800",
+                        "minecraft:stick,150,0.1,800"
+                ), obj -> obj instanceof String);
+        BUILDER.pop();
+
         BUILDER.push("Multiblock");
         BUILDER.comment("Here you can whitelist or blacklist blocks to ensure the scan of your custom structure works properly. You can only use either the tags + whitelist or the blacklist. Putting anything in the blacklist will disable the whitelist and tags");
             BUILDER.push("Whitelist");
