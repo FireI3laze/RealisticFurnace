@@ -19,8 +19,7 @@ public class MultiblockScanner {
         Set<Block> whitelistedBlocks = MultiblockUtils.getWhitelistedBlocks();
         Set<TagKey<Block>> validTags = MultiblockUtils.getValidTags();
 
-        // Wenn die Blacklist nicht leer ist, prüfe nur, ob der Block nicht auf der Blacklist steht
-        if (!blacklistedBlocks.isEmpty()) {
+        if (!blacklistedBlocks.isEmpty() && blacklistedBlocks.stream().anyMatch(Objects::nonNull)) {
             return !blacklistedBlocks.contains(block);
         }
 

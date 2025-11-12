@@ -23,17 +23,27 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
     private final int requiredHeat;
     private final ItemStack overheatedResult;
 
-    public Realistic_Furnace_Recipe(NonNullList<Ingredient> inputItems, ItemStack output, ResourceLocation id, int requiredHeat, ItemStack overheatedResult) {
+    // 🔹 Neu: Überhitzungs-Temperatur (optional)
+    private final int overheatedHeat;
+
+    public Realistic_Furnace_Recipe(NonNullList<Ingredient> inputItems, ItemStack output, ResourceLocation id,
+                                    int requiredHeat, ItemStack overheatedResult, int overheatedHeat) {
         this.inputItems = inputItems;
         this.output = output;
         this.id = id;
         this.requiredHeat = requiredHeat;
         this.overheatedResult = overheatedResult;
+        this.overheatedHeat = overheatedHeat;
     }
 
     public int getRequiredHeat() {
         return requiredHeat;
     }
+
+    public int getOverheatedHeat() {
+        return overheatedHeat;
+    }
+
     @Nullable
     public ItemStack getOverheatedResult(RegistryAccess registryAccess) {
         return overheatedResult == null ? ItemStack.EMPTY : overheatedResult;
@@ -101,13 +111,22 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
             NonNullList<Ingredient> inputs = NonNullList.withSize(1, Ingredient.EMPTY);
             inputs.set(0, Ingredient.fromJson(ingredients.get(0)));
 
-            // 🔹 Überhitzungs-Output aus JSON
+            // 🔹 Optionaler Überhitzungs-Output
             ItemStack overheatedResult = ItemStack.EMPTY;
             if (pSerializedRecipe.has("overheatedOutput")) {
                 overheatedResult = ShapedRecipe.itemStackFromJson(GsonHelper.getAsJsonObject(pSerializedRecipe, "overheatedOutput"));
             }
 
-            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult);
+            // 🔹 Optionaler Überhitzungs-Heat-Wert
+            int overheatedHeat;
+            if (pSerializedRecipe.has("overheatedHeat")) {
+                overheatedHeat = GsonHelper.getAsInt(pSerializedRecipe, "overheatedHeat");
+            } else {
+                // 🔸 Fallback: 50% über requiredHeat
+                overheatedHeat = (int) Math.round(requiredHeat * 1.5);
+            }
+
+            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult, overheatedHeat);
         }
 
         @Override
@@ -120,10 +139,10 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
             ItemStack output = pBuffer.readItem();
             int requiredHeat = pBuffer.readInt();
 
-            // 🔹 Überhitzungs-Output übertragen
             ItemStack overheatedResult = pBuffer.readItem();
+            int overheatedHeat = pBuffer.readInt(); // 🔹 Neu
 
-            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult);
+            return new Realistic_Furnace_Recipe(inputs, output, pRecipeId, requiredHeat, overheatedResult, overheatedHeat);
         }
 
         @Override
@@ -135,10 +154,8 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
 
             pBuffer.writeItemStack(pRecipe.getResultItem(null), false);
             pBuffer.writeInt(pRecipe.getRequiredHeat());
-
-            // 🔹 Überhitzungs-Output übertragen
             pBuffer.writeItemStack(Objects.requireNonNull(pRecipe.getOverheatedResult(null)), false);
+            pBuffer.writeInt(pRecipe.getOverheatedHeat()); // 🔹 Neu
         }
-
     }
 }

@@ -492,7 +492,7 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             float percentageOfRequiredHeat = heat / recipe.getRequiredHeat();
             float reachableProgress = maxProgress * percentageOfRequiredHeat;
 
-            if (percentageOfRequiredHeat >= 1.5f && progress[i] >= (float) maxProgress / 2) {
+            if (heat >= recipe.getOverheatedHeat() && progress[i] >= (float) maxProgress / 2) {
                 itemHandler.extractItem(i, 1, false);
 
                 ItemStack overheated = recipe.getOverheatedResult(level.registryAccess());
