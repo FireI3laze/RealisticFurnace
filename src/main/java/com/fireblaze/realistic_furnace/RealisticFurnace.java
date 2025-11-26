@@ -89,6 +89,11 @@ public class RealisticFurnace
 
     public void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            // Fuel-Daten laden
+            FurnaceFuelRegistry.loadAndMergeDefaults();
+            LOGGER.info("[Realistic Furnace] Custom fuels loaded and merged with defaults.");
+
+            // Multiblocks laden
             ensureDefaultMultiblockExists();
         });
     }
@@ -148,7 +153,7 @@ public class RealisticFurnace
     }
 
     @Mod.EventBusSubscriber(modid = RealisticFurnace.MODID)
-    public class RealisticFurnaceCommandRegistration {
+    public static class RealisticFurnaceCommandRegistration {
 
         @SubscribeEvent
         public static void onCommandRegister(RegisterCommandsEvent event) {
@@ -157,6 +162,9 @@ public class RealisticFurnace
             SelectMultiblockCommand.register(event.getDispatcher());
             DeleteMultiblockCommand.register(event.getDispatcher());
             RegisterTrapdoorCommand.register(event.getDispatcher());
+
+            // FuelCommand registrieren
+            event.getDispatcher().register(FuelCommand.register());
         }
     }
 }

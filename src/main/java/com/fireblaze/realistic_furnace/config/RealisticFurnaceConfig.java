@@ -25,7 +25,8 @@ public class RealisticFurnaceConfig {
         BUILDER.push("Fuel");
         CUSTOM_FUELS = BUILDER
                 .comment(
-                        "Custom fuels in format:\n" +
+                        "Basic fuels in format:\n" +
+                                "I highly recommend leaving these untouched and just using the commands in game, it is much easier. Only modify the list below if you want to get rid of a default fuel.\n" +
                                 "\"<item_or_tag>[,{nbt}],<burnTime>,<heatStrength>[,<maxHeat>]\"\n" +
                                 "item_or_tag is shown when pressing F3 + H\n" +
                                 "nbt can be optionally added if a fuel is determined purely by nbt and not by the item id (common for modern bucket mods etc.). Use /kjs hand to see the nbt and copy paste everything that is inside the Item.of() bracket and add a '\\' in front of every \" | Running into issues? Join the Discord on the mod page so I can help you!\n" +
