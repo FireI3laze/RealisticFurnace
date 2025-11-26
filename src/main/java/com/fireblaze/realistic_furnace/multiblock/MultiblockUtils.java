@@ -4,7 +4,9 @@ import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
 import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.tags.TagKey;
@@ -12,10 +14,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig.CUSTOM_FUELS;
@@ -78,20 +78,23 @@ public class MultiblockUtils {
             if (entry.isEmpty()) continue;
 
             try {
-                String[] parts = entry.split(",");
-                if (parts.length < 3) {
-                    System.err.println("[Realistic Furnace] Invalid fuel entry (too few parts): " + entry);
-                    continue;
+                String[] parts = splitFuelEntry(entry);
+                String idPart = parts[0];
+                String nbtPart = "";
+                String[] restParts;
+
+                if (parts[1].startsWith("{")) {
+                    nbtPart = parts[1];
+                    restParts = Arrays.copyOfRange(parts, 2, parts.length);
+                } else {
+                    restParts = Arrays.copyOfRange(parts, 1, parts.length);
                 }
 
-                String idPart = parts[0].trim();
-                int burnTime = Integer.parseInt(parts[1].trim());
-                float heatStrength = Float.parseFloat(parts[2].trim());
-                @Nullable Integer maxHeat = null;
-                if (parts.length >= 4) {
-                    String maxPart = parts[3].trim();
-                    if (!maxPart.isEmpty()) maxHeat = Integer.parseInt(maxPart);
-                }
+
+// burnTime, heatStrength, maxHeat aus restParts lesen
+                int burnTime = restParts.length > 0 ? Integer.parseInt(restParts[0].trim()) : 0;
+                float heatStrength = restParts.length > 1 ? Float.parseFloat(restParts[1].trim()) : 0f;
+                @Nullable Integer maxHeat = restParts.length > 2 ? Integer.parseInt(restParts[2].trim()) : null;
 
                 if (idPart.startsWith("#")) {
                     // Tag-Registrierung (Tag-IDs mit führendem '#', z.B. "#minecraft:planks")
@@ -117,17 +120,34 @@ public class MultiblockUtils {
                         System.err.println("[Realistic Furnace] Invalid resource id: " + idPart);
                         continue;
                     }
-                    ResourceLocation itemRL = ResourceLocation.fromNamespaceAndPath(idSplit[0], idSplit[1]);
-                    Item item = ForgeRegistries.ITEMS.getValue(itemRL);
+                    ResourceLocation rl = ResourceLocation.fromNamespaceAndPath(idSplit[0], idSplit[1]);
+                    Item item = ForgeRegistries.ITEMS.getValue(rl);
                     if (item == null || item == Items.AIR) {
-                        System.err.println("[Realistic Furnace] Could not find item for fuel entry: " + idPart);
                         continue;
                     }
-                    if (maxHeat != null) {
-                        FurnaceFuelRegistry.register(item, burnTime, heatStrength, maxHeat);
-                    } else {
-                        FurnaceFuelRegistry.register(item, burnTime, heatStrength);
+
+                    // ItemStack erstellen
+                    ItemStack stack = new ItemStack(item);
+
+// NBT setzen, falls vorhanden
+                    if (!nbtPart.isEmpty()) {
+                        try {
+                            CompoundTag nbt = net.minecraft.nbt.TagParser.parseTag(nbtPart);
+                            stack.setTag(nbt);
+                        } catch (Exception e) {
+                            System.err.println("[Realistic Furnace] Invalid NBT for fuel " + idPart + ": " + nbtPart);
+                        }
                     }
+
+// Registrierung
+                    FurnaceFuelRegistry.register(stack, burnTime, heatStrength, maxHeat);
+
+
+
+
+
+
+
                     System.out.printf("[Realistic Furnace] Registered fuel %s -> burn=%d, heat=%f, max=%s%n",
                             idPart, burnTime, heatStrength, maxHeat == null ? "none" : maxHeat);
                 }
@@ -138,6 +158,31 @@ public class MultiblockUtils {
             }
         }
     }
+
+    private static String[] splitFuelEntry(String entry) {
+        int braceLevel = 0;
+        StringBuilder current = new StringBuilder();
+        List<String> parts = new ArrayList<>();
+
+        for (int i = 0; i < entry.length(); i++) {
+            char c = entry.charAt(i);
+
+            if (c == '{') braceLevel++;
+            if (c == '}') braceLevel--;
+
+            if (c == ',' && braceLevel == 0) {
+                parts.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+
+        if (current.length() > 0) parts.add(current.toString().trim());
+
+        return parts.toArray(new String[0]);
+    }
+
 
 
     public static int getMaxScanBlocks() {

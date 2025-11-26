@@ -22,8 +22,6 @@ public class Realistic_Furnace_Recipe implements Recipe<SimpleContainer> {
     private final ResourceLocation id;
     private final int requiredHeat;
     private final ItemStack overheatedResult;
-
-    // 🔹 Neu: Überhitzungs-Temperatur (optional)
     private final int overheatedHeat;
 
     public Realistic_Furnace_Recipe(NonNullList<Ingredient> inputItems, ItemStack output, ResourceLocation id,

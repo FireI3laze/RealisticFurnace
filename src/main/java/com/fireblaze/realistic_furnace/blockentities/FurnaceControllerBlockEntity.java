@@ -273,9 +273,17 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             burnTime = FurnaceFuelRegistry.getBurnTime(fuel);
             burnTimeTotal = burnTime;
             activeFuel = fuel.copy();
-            fuel.shrink(1);
-            itemHandler.setStackInSlot(8, fuel);
+
+            // --- Container-Logik ---
+            ItemStack container = fuel.getItem().getCraftingRemainingItem(fuel);
+            if (!container.isEmpty()) {
+                itemHandler.setStackInSlot(8, container);
+            } else {
+                fuel.shrink(1); // normales Fuel
+                itemHandler.setStackInSlot(8, fuel);
+            }
         }
+
 
         if (burnTime > 0) {
             burnTime -= tickInterval;
@@ -388,26 +396,26 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         if (checkDoorClosed()) {
             if (isBurning) {
                 heatChange = heatIncreaseCalculation(DOOR_CLOSED_MULTIPLIER, activeFuel) + heatDecreaseCalculation(1) * tickInterval;
-                if (heatChange > 0.30) heat += heatChange;
-                else heat += (heatChange - 0.30f);
+                if (heatChange > 0.25) heat += heatChange;
+                else heat += (heatChange - 0.25f);
             } else {
                 heatChange = heatDecreaseCalculation(1) * tickInterval;
-                if (heatChange > 0.30) heat += heatChange;
-                else heat += (heatChange - 0.30f);
+                if (heatChange > 0.25) heat += heatChange;
+                else heat += (heatChange - 0.25f);
             }
         } else {
             if (isBurning) {
                 heatChange = heatIncreaseCalculation(1, activeFuel) + heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
-                if (heatChange > 0.30) heat += heatChange;
-                else heat += (heatChange - 0.30f);
+                if (heatChange > 0.25) heat += heatChange;
+                else heat += (heatChange - 0.25f);
             } else {
                 heatChange = heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
-                if (heatChange > 0.30) heat += heatChange;
-                else heat += (heatChange - 0.30f);
+                if (heatChange > 0.25) heat += heatChange;
+                else heat += (heatChange - 0.25f);
             }
         }
 
-        System.out.println(heatChange);
+        //System.out.println(heatChange);
 
         int itemMaxHeat = FurnaceFuelRegistry.getMaxHeat(activeFuel);
         if (itemMaxHeat != 0 && heat > itemMaxHeat && oldHeat < heat) {
@@ -418,7 +426,7 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
 
     private float heatIncreaseCalculation(float multiplier, ItemStack fuel) {
         float normalized = (heat - MIN_HEAT) / (MAX_HEAT - MIN_HEAT);
-        float exponent = 1.0f; //1.1
+        float exponent = 1.0f;
         float factor = (float) Math.pow(1.0f - normalized, exponent);
         return FurnaceFuelRegistry.getHeatStrength(fuel) * factor * multiplier;
     }
@@ -511,9 +519,11 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             if (heat >= recipe.getOverheatedHeat() && progress[i] >= (float) maxProgress / 2) {
                 itemHandler.extractItem(i, 1, false);
 
+                itemHandler.extractItem(i, 1, false);
+
                 ItemStack overheated = recipe.getOverheatedResult(level.registryAccess());
                 if (overheated != null && !overheated.isEmpty()) {
-                    itemHandler.insertItem(i, overheated.copy(), false);
+                    itemHandler.setStackInSlot(i, overheated.copy());
                 }
 
                 progress[i] = 0;
@@ -541,11 +551,19 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
             progress[i] = Math.max(0, Math.min(progress[i], maxProgress));
 
             if (progress[i] >= maxProgress) {
+                // --- OUTPUT COUNT KORREKT VERARBEITEN ---
                 itemHandler.extractItem(i, 1, false);
+
+// Ergebnis mit Count holen
                 assert level != null;
-                itemHandler.insertItem(i, recipe.getResultItem(level.registryAccess()).copy(), false);
+                ItemStack result = recipe.getResultItem(level.registryAccess()).copy();
+
+// Slot komplett auf das Ergebnis setzen
+                itemHandler.setStackInSlot(i, result);
+
                 progress[i] = 0;
                 stalled[i] = false;
+
             }
         }
     }

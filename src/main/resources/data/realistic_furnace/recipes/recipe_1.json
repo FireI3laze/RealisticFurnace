@@ -3,6 +3,6 @@
   "ingredients": [
     { "tag": "minecraft:logs" }
   ],
-  "output": { "item": "minecraft:charcoal" },
+  "output": { "item": "minecraft:charcoal"},
   "requiredHeat": 350
 }
