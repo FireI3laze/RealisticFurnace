@@ -80,6 +80,7 @@ public class RealisticFurnace
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
         ModMenuTypes.MENUS.register(modEventBus);
         ModRecipes.register(modEventBus);
+        MinecraftForge.EVENT_BUS.register(FurnaceInteractionBlocker.class);
 
         NetworkHandler.register();
     }

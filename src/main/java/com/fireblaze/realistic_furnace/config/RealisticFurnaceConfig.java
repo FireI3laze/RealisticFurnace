@@ -18,6 +18,7 @@ public class RealisticFurnaceConfig {
     public static final ForgeConfigSpec.IntValue MAX_SCAN_BLOCKS;
     public static final ForgeConfigSpec.ConfigValue<String> FALLBACK_MULTIBLOCK_FILE;
     public static final ForgeConfigSpec.EnumValue<TemperatureUnit> TEMPERATURE_UNIT;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_FURNACE_INTERACTION;
 
     public enum TemperatureUnit {
         CELSIUS,
@@ -30,6 +31,9 @@ public class RealisticFurnaceConfig {
         TEMPERATURE_UNIT = BUILDER
                 .comment("Temperature unit for GUI display")
                 .defineEnum("temperatureUnit", TemperatureUnit.CELSIUS);
+        ALLOW_FURNACE_INTERACTION = BUILDER
+                .comment("Allow interacting with vanilla furnace")
+                .define("allowVanillaFurnaceInteraction", true);
         BUILDER.pop();
 
         BUILDER.push("Multiblock");
