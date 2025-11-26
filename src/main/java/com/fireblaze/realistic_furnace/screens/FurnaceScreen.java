@@ -2,6 +2,7 @@ package com.fireblaze.realistic_furnace.screens;
 
         import com.fireblaze.realistic_furnace.RealisticFurnace;
         import com.fireblaze.realistic_furnace.blockentities.FurnaceControllerBlockEntity;
+        import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
         import com.fireblaze.realistic_furnace.containers.FurnaceContainer;
         import net.minecraft.client.gui.GuiGraphics;
         import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -80,7 +81,22 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
 
         // === Hitze-Skala ===
         final int[] heatMarks = {500, 1000, 1500};
-        final String[] heatLabels = {"500 ", "1000", "1500"};
+        final String[] heatLabels = new String[heatMarks.length];
+
+        for (int i = 0; i < heatMarks.length; i++) {
+            String label = FurnaceScreen.getTemperatureLabel(heatMarks[i]);
+
+            // Nur die Zahl auffüllen, °C/°F bleibt hinten
+            String numberPart = label.substring(0, label.length() - 2); // "500" aus "500°C"
+            String unitPart = label.substring(label.length() - 2);      // "°C"
+
+            // Zahl 4-stellig machen, links auffüllen mit Space
+            numberPart = String.format("%4s", numberPart);
+
+            heatLabels[i] = numberPart + unitPart;
+        }
+
+
         final int scaleOffset = 2; // Linie ragt ein paar Pixel in die Bar
         final int scaleLength = 4; // Länge der Linie innerhalb der Bar
         final int textColor = 0xFF000000; // Schwarz
@@ -101,7 +117,7 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             gui.drawString(
                     font,
                     heatLabels[i],
-                    (int) ((x - scaleOffset - textWidth + 6) / textScale), // links vom Strich, rechtsbündig
+                    (int) ((x - scaleOffset - textWidth + 11) / textScale), // links vom Strich, rechtsbündig
                     (int) ((markY - font.lineHeight / 2 + 2) / textScale),
                     textColor,
                     false
@@ -168,6 +184,22 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
 
     }
 
+    public static float toDisplayTemperature(float tempCelsius) {
+        if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
+            return tempCelsius * 9 / 5 + 32; // °F
+        }
+        return tempCelsius; // °C
+    }
+
+    public static String getTemperatureLabel(float tempCelsius) {
+        if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
+            return ((int)(tempCelsius * 9 / 5 + 32)) + "°F";
+        } else {
+            return ((int) tempCelsius) + "°C";
+        }
+    }
+
+
     private void drawBorder(GuiGraphics gui, int x, int y, int width, int height, int thickness, int color) {
         // Oben
         gui.fill(x - thickness, y - thickness, x + width + thickness, y, color);
@@ -218,9 +250,12 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
                 color = TextColor.fromRgb(0xFFFFFF); // Weiß sonst
             }
 
+            String display = FurnaceScreen.getTemperatureLabel(currentHeat);
+
             gui.renderTooltip(font,
-                    Component.literal((int) currentHeat + "°C").withStyle(Style.EMPTY.withColor(color)),
+                    Component.literal(display).withStyle(Style.EMPTY.withColor(color)),
                     mouseX, mouseY);
+
         }
 
         renderTooltip(gui, mouseX, mouseY);

@@ -1,6 +1,8 @@
 package com.fireblaze.realistic_furnace.compat;
 
+import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
 import mezz.jei.api.gui.drawable.IDrawable;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 public class HeatBarDrawable implements IDrawable {
@@ -25,7 +27,10 @@ public class HeatBarDrawable implements IDrawable {
         gui.fillGradient(x, y, x + width, y + height, colorTop, colorBottom);
 
         // 2️⃣ Overlay für nicht-geladene Hitze (grau)
-        float fraction = Math.min(1f, heatValue / (float) maxHeat);
+        float displayHeat = toDisplayTemperature(heatValue);
+        float displayMax = toDisplayTemperature(maxHeat);
+        float fraction = Math.min(1f, displayHeat / displayMax);
+
         int filledHeight = (int)(height * fraction);
         int hiddenHeight = height - filledHeight;
 
@@ -39,11 +44,47 @@ public class HeatBarDrawable implements IDrawable {
         drawBorder(gui, x, y, width, height, 1, borderColor);
 
         // 4️⃣ Optional: Skalenmarkierungen (z.B. 500, 1000, 1500)
+        // 4️⃣ Optional: Skalenmarkierungen (z.B. 500, 1000, 1500)
         final int[] heatMarks = {500, 1000, 1500};
+        final float textScale = 0.7f;       // Textgröße
+        final int textColor = 0xFF000000;   // Schwarz
+
         for (int mark : heatMarks) {
-            float markFraction = Math.min(1f, mark / (float) maxHeat);
+            float markDisplay = toDisplayTemperature(mark);
+            float markFraction = Math.min(1f, markDisplay / displayMax);
             int markY = y + height - (int)(markFraction * height);
             gui.fill(x - 2, markY, x + 2, markY + 1, 0xFF000000);
+
+            // Label rechts vom Strich
+            /*
+            String label = getTemperatureLabel(mark);
+            gui.pose().pushPose();
+            gui.pose().scale(textScale, textScale, 1f);
+            gui.drawString(
+                    Minecraft.getInstance().font,
+                    label,
+                    (int)((x + 4) / textScale), // etwas rechts vom Strich
+                    (int)((markY - Minecraft.getInstance().font.lineHeight / 2) / textScale),
+                    textColor,
+                    false
+            );
+            gui.pose().popPose();
+            */
+        }
+    }
+
+    private static float toDisplayTemperature(float tempCelsius) {
+        if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
+            return tempCelsius * 9 / 5 + 32;
+        }
+        return tempCelsius;
+    }
+
+    public static String getTemperatureLabel(float tempCelsius) {
+        if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
+            return ((int)(tempCelsius * 9 / 5 + 32)) + "°F";
+        } else {
+            return ((int) tempCelsius) + "°C";
         }
     }
 

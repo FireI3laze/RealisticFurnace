@@ -129,9 +129,10 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
                 mouseY >= heatBarY && mouseY < heatBarY + heatBarHeight) {
 
             Font font = Minecraft.getInstance().font;
+            String label = HeatBarDrawable.getTemperatureLabel(requiredHeat); // Hier Fahrenheit/Celsius berücksichtigen
             gui.renderTooltip(
                     font,
-                    Component.literal(requiredHeat + "°C"),
+                    Component.literal(label),
                     (int) mouseX,
                     (int) mouseY
             );

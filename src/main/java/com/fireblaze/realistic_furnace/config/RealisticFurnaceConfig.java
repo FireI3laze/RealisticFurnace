@@ -17,34 +17,19 @@ public class RealisticFurnaceConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> VALID_TAGS;
     public static final ForgeConfigSpec.IntValue MAX_SCAN_BLOCKS;
     public static final ForgeConfigSpec.ConfigValue<String> FALLBACK_MULTIBLOCK_FILE;
+    public static final ForgeConfigSpec.EnumValue<TemperatureUnit> TEMPERATURE_UNIT;
 
-
+    public enum TemperatureUnit {
+        CELSIUS,
+        FAHRENHEIT;
+    }
 
 
     static {
-        BUILDER.push("Fuel");
-        CUSTOM_FUELS = BUILDER
-                .comment(
-                        "Basic fuels in format:\n" +
-                                "I highly recommend leaving these untouched and just using the commands in game, it is much easier. Only modify the list below if you want to get rid of a default fuel.\n" +
-                                "\"<item_or_tag>[,{nbt}],<burnTime>,<heatStrength>[,<maxHeat>]\"\n" +
-                                "item_or_tag is shown when pressing F3 + H\n" +
-                                "nbt can be optionally added if a fuel is determined purely by nbt and not by the item id (common for modern bucket mods etc.). Use /kjs hand to see the nbt and copy paste everything that is inside the Item.of() bracket and add a '\\' in front of every \" | Running into issues? Join the Discord on the mod page so I can help you!\n" +
-                                "burnTime determines the time (in ticks) how long an item burns\n" +
-                                "heatStrength is a value that determines the heat raise speed and max heat\n" +
-                                "maxHeat can be optionally set to hard force a max heat. Put it with caution, if not somewhat in sync with the dynamically created max heat based on heatStrength, it could lead to unrealistic heat jumps\n" +
-                                "Example:\n" +
-                                "\"minecraft:coal,{\\\"FuelType\\\":1},1600,0.9\", Note: \"FuelType\" is just an example nbt. It doesn't exist. Use KubeJS to read out existing nbts.\n" +
-                                "\"minecraft:charcoal,1600,0.275\",\n" +
-                                "\"#minecraft:planks,300,0.2,800\"  (Tags begin with '#')\n" +
-                                "\"minecraft:stick,150,0.1,800\""
-                )
-                .defineList("fuels", List.of(
-                        "minecraft:coal,1600,0.9",
-                        "minecraft:charcoal,1600,0.275,1350",
-                        "#minecraft:planks,300,0.1,800",
-                        "minecraft:stick,150,0.1,800"
-                ), obj -> obj instanceof String);
+        BUILDER.push("Preferences");
+        TEMPERATURE_UNIT = BUILDER
+                .comment("Temperature unit for GUI display")
+                .defineEnum("temperatureUnit", TemperatureUnit.CELSIUS);
         BUILDER.pop();
 
         BUILDER.push("Multiblock");
@@ -86,6 +71,32 @@ public class RealisticFurnaceConfig {
                     .comment("Default/Fallback multiblock file. Only reconfigure this if you are sure the multiblock you are going to put as fallback is valid\nThis is required if you want others to use by default a custom multiblock when downloading your modpack")
                     .define("TheFallbackFile", "original_furnace.json");
             BUILDER.pop();
+        BUILDER.pop();
+
+        BUILDER.push("Fuel");
+        CUSTOM_FUELS = BUILDER
+                .comment(
+                        "I highly recommend leaving these untouched and just using the commands in game, it is much easier. Only modify the list below if you want to get rid of a default fuel.\n" +
+                                "If you want to add tags, I recommend adding them in the fuels.json\n" +
+                                "Format:\n" +
+                                "\"<itemid_or_tag>[,{nbt}],<burnTime>,<heatStrength>[,<maxHeat>]\"\n" +
+                                "itemid is shown when pressing F3 + H\n" +
+                                "nbt can be optionally added if a fuel is determined purely by nbt and not by the item id (common for modern bucket mods etc.). Use /kjs hand to see the nbt and copy paste everything that is inside the Item.of() bracket and add a '\\' in front of every \" | Running into issues? Join the Discord on the mod page so I can help you!\n" +
+                                "burnTime determines the time (in ticks) how long an item burns\n" +
+                                "heatStrength is a value that determines the heat raise speed and max heat\n" +
+                                "maxHeat can be optionally set to hard force a max heat. Put it with caution, if not somewhat in sync with the dynamically created max heat based on heatStrength, it could lead to unrealistic heat jumps\n" +
+                                "Example:\n" +
+                                "\"minecraft:coal,{\\\"FuelType\\\":1},1600,0.9\", Note: \"FuelType\" is just an example nbt. It doesn't exist. Use KubeJS to read out existing nbts.\n" +
+                                "\"minecraft:charcoal,1600,0.275\",\n" +
+                                "\"#minecraft:planks,300,0.2,800\"  (Tags begin with '#')\n" +
+                                "\"minecraft:stick,150,0.1,800\""
+                )
+                .defineList("fuels", List.of(
+                        "minecraft:coal,1600,0.9",
+                        "minecraft:charcoal,1600,0.275,1350",
+                        "#minecraft:planks,300,0.1,800",
+                        "minecraft:stick,150,0.1,800"
+                ), obj -> obj instanceof String);
         BUILDER.pop();
 
         SPEC = BUILDER.build();
