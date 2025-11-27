@@ -87,23 +87,6 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
         builder.addSlot(RecipeIngredientRole.OUTPUT, 92, 21).addItemStack(recipe.getResultItem(null));
         builder.addSlot(RecipeIngredientRole.OUTPUT, 114, 21).addItemStack(recipe.getResultItem(null));
         builder.addSlot(RecipeIngredientRole.OUTPUT, 114, 48).addItemStack(recipe.getResultItem(null));
-
-        /*
-        builder.addSlot(RecipeIngredientRole.RENDER_ONLY, 45, 18)
-                .setBackground(progressAnimated, 0, 0);
-        builder.addSlot(RecipeIngredientRole.RENDER_ONLY, 67, 18)
-                .setBackground(progressAnimated, 0, 0);
-        builder.addSlot(RecipeIngredientRole.RENDER_ONLY, 67, 45)
-                .setBackground(progressAnimated, 0, 0);
-        builder.addSlot(RecipeIngredientRole.RENDER_ONLY, 91, 45)
-                .setBackground(progressAnimated, 0, 0);
-
-        int requiredHeat = recipe.getRequiredHeat(); // z.B. von deinem Recipe
-        IDrawable heatBarDrawable = new HeatBarDrawable(8, 64, requiredHeat, 1800);
-
-        builder.addSlot(RecipeIngredientRole.RENDER_ONLY, 140, 18)
-                .setBackground(heatBarDrawable, 0, 0);
-        */
     }
 
     @Override

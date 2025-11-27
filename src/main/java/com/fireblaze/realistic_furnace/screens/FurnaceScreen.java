@@ -117,7 +117,7 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             gui.drawString(
                     font,
                     heatLabels[i],
-                    (int) ((x - scaleOffset - textWidth + 11) / textScale), // links vom Strich, rechtsbündig
+                    (int) ((x - scaleOffset - textWidth + 8) / textScale), // links vom Strich, rechtsbündig
                     (int) ((markY - font.lineHeight / 2 + 2) / textScale),
                     textColor,
                     false
@@ -193,9 +193,9 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
 
     public static String getTemperatureLabel(float tempCelsius) {
         if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
-            return ((int)(tempCelsius * 9 / 5 + 32)) + "°F";
+            return ((int)(tempCelsius * 9 / 5 + 32)) + "";
         } else {
-            return ((int) tempCelsius) + "°C";
+            return ((int) tempCelsius) + "";
         }
     }
 
@@ -251,6 +251,9 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             }
 
             String display = FurnaceScreen.getTemperatureLabel(currentHeat);
+            if (RealisticFurnaceConfig.TEMPERATURE_UNIT.get() == RealisticFurnaceConfig.TemperatureUnit.FAHRENHEIT) {
+                display = display + "°F";
+            } else display = display + "°C";
 
             gui.renderTooltip(font,
                     Component.literal(display).withStyle(Style.EMPTY.withColor(color)),

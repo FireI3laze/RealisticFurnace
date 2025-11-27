@@ -396,22 +396,22 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
         if (checkDoorClosed()) {
             if (isBurning) {
                 heatChange = heatIncreaseCalculation(DOOR_CLOSED_MULTIPLIER, activeFuel) + heatDecreaseCalculation(1) * tickInterval;
-                if (heatChange > 0.25) heat += heatChange;
-                else heat += (heatChange - 0.25f);
+                if (heatChange > 0.20) heat += heatChange;
+                else heat += (heatChange - 0.20f);
             } else {
                 heatChange = heatDecreaseCalculation(1) * tickInterval;
-                if (heatChange > 0.25) heat += heatChange;
-                else heat += (heatChange - 0.25f);
+                if (heatChange > 0.20) heat += heatChange;
+                else heat += (heatChange - 0.20f);
             }
         } else {
             if (isBurning) {
                 heatChange = heatIncreaseCalculation(1, activeFuel) + heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
-                if (heatChange > 0.25) heat += heatChange;
-                else heat += (heatChange - 0.25f);
+                if (heatChange > 0.20) heat += heatChange;
+                else heat += (heatChange - 0.20f);
             } else {
                 heatChange = heatDecreaseCalculation(DOOR_OPEN_MULTIPLIER) * tickInterval;
-                if (heatChange > 0.25) heat += heatChange;
-                else heat += (heatChange - 0.25f);
+                if (heatChange > 0.20) heat += heatChange;
+                else heat += (heatChange - 0.20f);
             }
         }
 
