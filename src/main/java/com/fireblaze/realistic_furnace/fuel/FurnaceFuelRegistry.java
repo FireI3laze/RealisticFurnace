@@ -20,6 +20,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -328,5 +329,28 @@ public class FurnaceFuelRegistry {
         System.out.println("[DEBUG] Finished merging basic fuels. Total fuels: " + ITEM_FUEL.size());
     }
 
+    public static List<ItemStack> getAllFuelStacks() {
+        List<ItemStack> stacks = new ArrayList<>();
 
+        for (StackKey key : ITEM_FUEL.keySet()) {
+            if (key.isTag()) {
+                // Alle Items aus Tag holen
+                for (Item item : ForgeRegistries.ITEMS) {
+                    if (item.builtInRegistryHolder().is(key.tag())) {
+                        stacks.add(new ItemStack(item));
+                    }
+                }
+            } else if (key.item() != null) {
+                ItemStack stack = new ItemStack(key.item());
+
+                // NBT anwenden (falls vorhanden)
+                if (key.nbt() != null) {
+                    stack.setTag(key.nbt().copy());
+                }
+
+                stacks.add(stack);
+            }
+        }
+        return stacks;
+    }
 }

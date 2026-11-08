@@ -2,6 +2,8 @@ package com.fireblaze.realistic_furnace.compat;
 
 import com.fireblaze.realistic_furnace.RealisticFurnace;
 import com.fireblaze.realistic_furnace.blocks.ModBlocks;
+import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
+import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
 import com.fireblaze.realistic_furnace.recipe.Realistic_Furnace_Recipe;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.drawable.IDrawableAnimated;
@@ -21,6 +23,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import net.minecraft.client.Minecraft;
+
+import java.util.List;
 
 
 public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_Recipe> {
@@ -75,6 +79,10 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
 
     @Override
     public void setRecipe(IRecipeLayoutBuilder builder, Realistic_Furnace_Recipe recipe, IFocusGroup focuses) {
+        // Fuel
+        builder.addSlot(RecipeIngredientRole.INPUT, 15, 34)
+                .addIngredients(VanillaTypes.ITEM_STACK, FurnaceFuelRegistry.getAllFuelStacks());
+
         // input
         builder.addSlot(RecipeIngredientRole.INPUT, 46, 21).addIngredients(recipe.getIngredients().get(0));
         builder.addSlot(RecipeIngredientRole.INPUT, 68, 21).addIngredients(recipe.getIngredients().get(0));
@@ -87,6 +95,12 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
         builder.addSlot(RecipeIngredientRole.OUTPUT, 92, 21).addItemStack(recipe.getResultItem(null));
         builder.addSlot(RecipeIngredientRole.OUTPUT, 114, 21).addItemStack(recipe.getResultItem(null));
         builder.addSlot(RecipeIngredientRole.OUTPUT, 114, 48).addItemStack(recipe.getResultItem(null));
+
+        ItemStack overheated = recipe.getOverheatedResult(null);
+        if (!overheated.isEmpty()) {
+            builder.addSlot(RecipeIngredientRole.OUTPUT, -1000, -1000) // offscreen
+                    .addItemStack(overheated);
+        }
     }
 
     @Override
@@ -103,8 +117,21 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
         int heatBarWidth = 8;
         int heatBarHeight = 64;
         int requiredHeat = recipe.getRequiredHeat();
+        int overheatedHeat = recipe.getOverheatedHeat();
+        int maxHeat = RealisticFurnaceConfig.MAX_HEAT.get();
+        ItemStack inputStack = recipe.getIngredients().get(0).getItems()[0];
+        ItemStack overheatStack = recipe.getOverheatedResult(null);
 
-        HeatBarDrawable heatBar = new HeatBarDrawable(heatBarWidth, heatBarHeight, requiredHeat, 1800);
+        HeatBarDrawable heatBar = new HeatBarDrawable(
+                heatBarWidth,
+                heatBarHeight,
+                requiredHeat,
+                recipe.getOverheatedHeat(),
+                maxHeat,
+                inputStack,
+                overheatStack
+        );
+
         heatBar.draw(gui, heatBarX, heatBarY);
 
         // Tooltip **nur** wenn Maus über HeatBar
@@ -112,7 +139,39 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
                 mouseY >= heatBarY && mouseY < heatBarY + heatBarHeight) {
 
             Font font = Minecraft.getInstance().font;
-            String label = HeatBarDrawable.getTemperatureLabel(requiredHeat); // Hier Fahrenheit/Celsius berücksichtigen
+
+            // 🔥 Mausposition → Temperatur umrechnen
+            float relativeY = (float)(mouseY - heatBarY) / heatBarHeight;
+            relativeY = Math.max(0f, Math.min(1f, relativeY));
+
+            float heatFraction = 1f - relativeY; // unten = heiß
+            float hoveredHeat = heatFraction * maxHeat;
+
+            String label;
+
+            boolean shiftDown = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+            boolean controlDown = net.minecraft.client.gui.screens.Screen.hasControlDown();
+
+            if (shiftDown) {
+                label = "Min smelting range: " +
+                        HeatBarDrawable.getTemperatureLabel(requiredHeat);
+            } else if (controlDown) {
+                label = "Max smelting range: " +
+                        HeatBarDrawable.getTemperatureLabel(overheatedHeat - 1);
+            }
+
+            else {
+                if (hoveredHeat < requiredHeat) {
+                    label = "Too cold: " + HeatBarDrawable.getTemperatureLabel(hoveredHeat);
+                }
+                else if (hoveredHeat < overheatedHeat) {
+                    label = "Smelting range: " + HeatBarDrawable.getTemperatureLabel(hoveredHeat);
+                }
+                else {
+                    label = "Too hot: " + HeatBarDrawable.getTemperatureLabel(hoveredHeat);
+                }
+            }
+
             gui.renderTooltip(
                     font,
                     Component.literal(label),
@@ -123,6 +182,44 @@ public class FurnaceRecipeCategory implements IRecipeCategory<Realistic_Furnace_
 
         int flameX = 15; // Position manuell anpassen
         int flameY = 17; // Position manuell anpassen
+
+        float scale = 0.6f;
+        int iconSize = 16;
+        int scaledSize = (int)(iconSize * scale);
+
+        // gleiche Berechnung wie im HeatBarDrawable!
+        float overheatFraction = Math.min(1f, (float) overheatedHeat / maxHeat);
+        int yOverheat = heatBarY + heatBarHeight - (int)(overheatFraction * heatBarHeight);
+
+        int iconX = heatBarX + heatBarWidth + 2;
+        int iconY;
+        String text;
+        if (yOverheat != 9) {
+            iconY = yOverheat - (scaledSize / 2) - 1;
+            text = "Burns at " +
+                    HeatBarDrawable.getTemperatureLabel(overheatedHeat);
+        }
+        else {
+            iconY = yOverheat - (scaledSize / 2) - 1;
+            text = "Can't be burned";
+        }
+
+        // Bereich definieren (inkl. Pfeil + Output)
+        int areaWidth = scaledSize + 2 + 12 + 16; // input + spacing + arrow + output
+        int areaHeight = scaledSize;
+
+        if (mouseX >= iconX && mouseX <= iconX + areaWidth &&
+                mouseY >= iconY && mouseY <= iconY + areaHeight) {
+
+            Font font = Minecraft.getInstance().font;
+
+            gui.renderTooltip(
+                    font,
+                    Component.literal(text),
+                    (int) mouseX,
+                    (int) mouseY
+            );
+        }
 
         flameAnimated.draw(gui, flameX, flameY);
     }

@@ -48,8 +48,8 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
         int heatHeight = (int) (currentHeat / maxHeat * HEAT_BAR_HEIGHT);
 
         // --- Schritt 1: festen Gradient voll zeichnen ---
-        int colorTop = 0xFFDD5555;    // kräftiges Rot
-        int colorBottom = 0xFF5555DD; // kräftiges Blau
+        int colorTop = RealisticFurnaceConfig.parseColor( RealisticFurnaceConfig.HEATBAR_TOP_COLOR_GUI.get() );
+        int colorBottom = RealisticFurnaceConfig.parseColor( RealisticFurnaceConfig.HEATBAR_BOTTOM_COLOR_GUI.get() );
 
         gui.fillGradient(
                 x,
@@ -74,26 +74,36 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             );
         }
 
-// --- Schritt 3: Rand drüber zeichnen ---
+        // --- Schritt 3: Rand drüber zeichnen ---
         drawBorder(gui, x, y, HEAT_BAR_WIDTH, HEAT_BAR_HEIGHT, 1, 0xFF000000);
 
 
 
         // === Hitze-Skala ===
-        final int[] heatMarks = {500, 1000, 1500};
+        int heatStep = RealisticFurnaceConfig.HEAT_INCREMENTS.get();
+        int count = Math.max(0, (maxHeat - 1) / heatStep);
+
+        int[] heatMarks = new int[count];
+
+        for (int i = 0; i < count; i++) {
+            heatMarks[i] = (i + 1) * heatStep;
+        }
+
         final String[] heatLabels = new String[heatMarks.length];
 
-        for (int i = 0; i < heatMarks.length; i++) {
-            String label = FurnaceScreen.getTemperatureLabel(heatMarks[i]);
+        if (RealisticFurnaceConfig.SHOW_INCREMENTS_STRING.get()) {
+            for (int i = 0; i < heatMarks.length; i++) {
+                String label = FurnaceScreen.getTemperatureLabel(heatMarks[i]);
 
-            // Nur die Zahl auffüllen, °C/°F bleibt hinten
-            String numberPart = label.substring(0, label.length() - 2); // "500" aus "500°C"
-            String unitPart = label.substring(label.length() - 2);      // "°C"
+                // Nur die Zahl auffüllen, °C/°F bleibt hinten
+                String numberPart = label.substring(0, label.length() - 2); // "500" aus "500°C"
+                String unitPart = label.substring(label.length() - 2);      // "°C"
 
-            // Zahl 4-stellig machen, links auffüllen mit Space
-            numberPart = String.format("%4s", numberPart);
+                // Zahl 4-stellig machen, links auffüllen mit Space
+                numberPart = String.format("%4s", numberPart);
 
-            heatLabels[i] = numberPart + unitPart;
+                heatLabels[i] = numberPart + unitPart;
+            }
         }
 
 
@@ -244,7 +254,7 @@ public class FurnaceScreen extends AbstractContainerScreen<FurnaceContainer> {
             TextColor color;
             if (currentHeat >= threateningHeat) {
                 color = TextColor.fromRgb(0xFF5555); // Rot bei Gefahr
-            } else if (currentHeat >= 1600) {
+            } else if (currentHeat >= threateningHeat * 0.95) {
                 color = TextColor.fromRgb(0xFFFF55); // Gelb bei 1600+
             } else {
                 color = TextColor.fromRgb(0xFFFFFF); // Weiß sonst

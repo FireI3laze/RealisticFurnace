@@ -2,6 +2,7 @@ package com.fireblaze.realistic_furnace.blockentities;
 
 import com.fireblaze.realistic_furnace.blocks.FurnaceControllerBlock;
 import com.fireblaze.realistic_furnace.client.FurnaceRenderState;
+import com.fireblaze.realistic_furnace.config.RealisticFurnaceConfig;
 import com.fireblaze.realistic_furnace.fuel.FurnaceFuelRegistry;
 import com.fireblaze.realistic_furnace.multiblock.*;
 import com.fireblaze.realistic_furnace.recipe.Realistic_Furnace_Recipe;
@@ -59,8 +60,8 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
     private ItemStack activeFuel = ItemStack.EMPTY;
 
     private static final float HEAT_DECREASE_BASE = 0.15f;
-    private static final int MAX_HEAT = 1800;
-    private static final int THREATENING_HEAT = 1650;
+    private static final int MAX_HEAT = RealisticFurnaceConfig.MAX_HEAT.get();
+    private static final int THREATENING_HEAT = RealisticFurnaceConfig.THREATENING_HEAT.get();
     private static final int MIN_HEAT = 0;
 
     private static final float DOOR_OPEN_MULTIPLIER = 20f;
@@ -355,8 +356,8 @@ public class FurnaceControllerBlockEntity extends BlockEntity {
                     dummy,
                     worldPosition.offset(0, 0, 0).getX(),
                     worldPosition.offset(0, 2, 0).getY(),
-                    worldPosition.offset(0, 0, 1).getZ(),
-                    6.0f,
+                    worldPosition.offset(0, 0, 0).getZ(),
+                    4.0f,
                     Level.ExplosionInteraction.BLOCK
             );
 

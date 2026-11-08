@@ -1,6 +1,5 @@
 package com.fireblaze.realistic_furnace;
 
-import com.fireblaze.realistic_furnace.blockentities.FurnaceControllerBlockEntity;
 import com.fireblaze.realistic_furnace.blockentities.ModBlockEntities;
 import com.fireblaze.realistic_furnace.blocks.ModBlocks;
 import com.fireblaze.realistic_furnace.commands.*;
@@ -14,8 +13,6 @@ import com.fireblaze.realistic_furnace.items.ModItems;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.level.block.entity.BlockEntityTicker;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
@@ -23,7 +20,6 @@ import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -65,8 +61,14 @@ public class RealisticFurnace
         // === Config im Unterordner registrieren ===
         ModLoadingContext.get().registerConfig(
                 ModConfig.Type.COMMON,
-                RealisticFurnaceConfig.SPEC,
+                RealisticFurnaceConfig.COMMON_SPEC,
                 configDir.resolve("realistic_furnace-common.toml").toString()
+        );
+
+        ModLoadingContext.get().registerConfig(
+                ModConfig.Type.CLIENT,
+                RealisticFurnaceConfig.CLIENT_SPEC,
+                configDir.resolve("realistic_furnace-client.toml").toString()
         );
 
         // Register ourselves for server and other game events we are interested in
